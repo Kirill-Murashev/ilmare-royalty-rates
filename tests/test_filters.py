@@ -33,6 +33,20 @@ def test_each_filter(tmp_path: Path, reference: Path, company: Callable,
     assert [n for _, sec, _, n in funnel if sec == "total"] == [7, 6, 5, 4, 3, 2, 1]
 
 
+def test_rows_without_inn_are_dropped(tmp_path: Path, reference: Path, company: Callable,
+                                      write_year: Callable) -> None:
+    rows = [company("good"), company("f1", line_2110=None)]
+    results = []
+    for name, extra in (("plain", []), ("with_blank", [company(None), company("")])):
+        root = tmp_path / name
+        write_year(root, 2025, rows + extra)
+        config = Config(root, reference, tmp_path / f"out-{name}", "test", years=(2025,))
+        results.append(selected(config))
+    assert results[0] == results[1]
+    assert results[1][0] == ["good"]
+    assert [n for _, sec, _, n in results[1][1] if sec == "total"] == [2, 1, 1, 1, 1, 1, 1]
+
+
 @pytest.mark.parametrize(("changes", "excluded"), [
     ({"line_2110": 0}, True), ({"line_2110": None}, True),
     ({"line_2110": -1}, True), ({"line_1300": 0}, True),

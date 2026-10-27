@@ -19,6 +19,8 @@ FILTERS = (
 def load_year(con: duckdb.DuckDBPyConnection, config: Config, year: int,
               normalization: list[tuple] | None = None) -> list[tuple]:
     """Materialize selected rows in s; return section and total counts at every step."""
+    # Rows without INN are dropped, as the RFSD files the edition read had them dropped upstream
+    # (one row per year 2013-2025 in RFSD 3.1.0).
     con.execute("""CREATE OR REPLACE TEMP TABLE b AS
         SELECT cast(inn AS VARCHAR) inn, cast(okved AS VARCHAR) okved,
             cast(okopf AS VARCHAR) okopf, simplified,
@@ -26,7 +28,8 @@ def load_year(con: duckdb.DuckDBPyConnection, config: Config, year: int,
             cast(line_2300 AS DOUBLE) + abs(coalesce(cast(line_2330 AS DOUBLE), 0)) ebit,
             line_2400 np, line_1300 cap,
             cast(line_1300 AS DOUBLE) + coalesce(cast(line_1530 AS DOUBLE), 0) na
-        FROM read_parquet(?)""", [str(config.input_path(year))])
+        FROM read_parquet(?)
+        WHERE inn IS NOT NULL AND CAST(inn AS VARCHAR) <> ''""", [str(config.input_path(year))])
     loss = "b.np < 0"
     for index, previous in enumerate((year - 1, year - 2)):
         path = config.input_path(previous)

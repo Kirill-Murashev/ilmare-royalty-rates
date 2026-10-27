@@ -84,6 +84,10 @@ For filter Ф4 (persistent losses) the loader also reads the two previous years 
 template; for statement years 2011 and 2012 they do not exist, and the filter is not applied there
 (see methodology, section 5).
 
+The RFSD files on Hugging Face for 2013–2025 hold one record without an INN in each year. The loader
+drops records without an INN, exactly as was done in the input files of the edition, so the files from
+Hugging Face give the same marts.
+
 ### 2. OKVED2 reference
 
 Open data of Rosstat, dataset **7708234640-okvedva** (All-Russian Classifier of Economic Activities,
