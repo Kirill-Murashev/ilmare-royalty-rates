@@ -1,0 +1,9 @@
+{"version": "v2", "base_combination": {"ip": "invention", "license": "nonexcl"},
+ "tiers": [
+  {"key": "low", "name": "Малоценная", "a": 7.4011, "b": 64.4738, "target": [0.06, 0.10, 0.15]},
+  {"key": "normal", "name": "Обычная", "a": 15.331, "b": 46.066, "target": [0.18, 0.25, 0.32]},
+  {"key": "valuable", "name": "Ценная", "a": 24.1913, "b": 49.1537, "target": [0.26, 0.33, 0.40]},
+  {"key": "core", "name": "Бизнес-образующая", "a": 36.5616, "b": 55.6357, "target": [0.33, 0.40, 0.46]}],
+ "k_ip": {"invention": 1.00, "utility": 0.85, "software": 1.20, "trademark": 0.75,
+          "design": 0.75, "database": 0.80, "knowhow": 0.95, "patent_knowhow": 1.30},
+ "k_license": {"nonexcl": 1.00, "excl": 1.35}}

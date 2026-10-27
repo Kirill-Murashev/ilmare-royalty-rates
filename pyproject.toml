@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ilmare-royalty-rates"
+version = "0.1.0"
+description = "Calculation scripts behind the Ilmarë royalty-rate reference, edition 2026.1"
+readme = "README.en.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+dependencies = [
+    "duckdb==1.5.6",
+    "numpy==2.5.4",
+]
+
+[project.optional-dependencies]
+test = ["pytest==9.1.1", "ruff==0.16.10"]
+independent-check = ["scipy==1.16.3"]
+
+[project.scripts]
+ilmare-edition = "ilmare_edition.cli:main"
+
+[tool.setuptools]
+packages = ["ilmare_edition"]
+
+[tool.setuptools.package-data]
+ilmare_edition = ["data/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+# independent-check/ is kept as written, apart from the file-pattern argument and headers.
+[tool.ruff]
+extend-exclude = ["independent-check"]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

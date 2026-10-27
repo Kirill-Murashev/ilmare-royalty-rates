@@ -1,0 +1,17 @@
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+.venv-*/
+rfsd/
+marts*/
+*.parquet
+*.csv
+*.jsonl
+keys*.json
+royalty_keys.json
+crosscheck.json
+calibration*.json
