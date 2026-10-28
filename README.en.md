@@ -2,14 +2,14 @@
 
 [Русская версия → README.md](README.md)
 
-Calculation scripts behind the **Royalty Rate Reference by OKVED2 Industry (licensee profit-split
-method)**, edition 2026.1 ("Ilmarë"). This repository contains only the code that turns open
+Calculation scripts behind the **Statistical Collection of Industry Royalty Rates (licensee
+profit-split method)** (the Collection), edition 2026.1 ("Ilmarë"). This repository contains only the code that turns open
 financial statements of Russian companies into the profitability statistics and royalty rates of the
-reference, plus scripts that re-derive those numbers with a separately written implementation. The
-purpose is simple: anyone can check that the numbers of the reference are computed, not invented.
+Collection, plus scripts that re-derive those numbers with a separately written implementation. The
+purpose is simple: anyone can check that the numbers of the Collection are computed, not invented.
 
-The reference: <https://app.digitalpm.info>. Authors: N. R. Kirshina, K. A. Murashev. The reference
-text is in Russian.
+The Collection: <https://app.digitalpm.info>. Authors: N. R. Kirshina, K. A. Murashev. The text of
+the Collection is in Russian.
 
 ## Method in one paragraph
 
@@ -23,7 +23,7 @@ statistics, and the interval width assigns an accuracy class to each cell. The b
 quartile `Q3` ("successful licensee"); the share `S` is modelled by four beta distributions (value
 tiers of the intellectual property), and the distribution of the rate is obtained by Monte Carlo
 (100,000 draws, fixed seed, the same draws for all cells and years). The full description is in
-sections 3–8 of the reference's methodology.
+sections 3–8 of the Collection's methodology.
 
 ## Contents
 
@@ -183,7 +183,7 @@ synthetic data in `tests/test_calibration.py`.
 ## What is not in this repository, and why
 
 - **The Elbereth case export.** The results of the court-ruling analysis come from a separate
-  database whose rights are not covered by the licence of the reference.
+  database whose rights are not covered by the licence of the Collection.
 - **BVR and Markables data.** They belong to third-party providers; the authors have not obtained the
   right to redistribute them.
 - **Sets of external rates (Russian and foreign).** Their rows come from franchise catalogues and
@@ -214,4 +214,4 @@ skipped when scipy is not installed.
   (Institute for the Rule of Law, European University at St Petersburg). The dataset page also shows
   a CC BY-NC-SA 4.0 badge; its Licence section and metadata state CC BY 4.0.
 - OKVED2 reference — Rosstat open data; terms at the link above.
-- The text of the reference (the book) is distributed separately under CC BY-SA 4.0.
+- The text of the Collection (the book) is distributed separately under CC BY-SA 4.0.
