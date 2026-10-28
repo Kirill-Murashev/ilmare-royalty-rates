@@ -14,23 +14,37 @@ class Okved:
         if path.suffix.lower() == ".csv":
             self.records = {}
             with path.open(encoding="utf-8-sig", newline="") as stream:
-                for n, row in enumerate(csv.reader(stream, delimiter=";"), 1):
-                    if not row:
-                        continue
-                    if len(row) != 3:
-                        raise ValueError(f"invalid OKVED2 CSV line {n}: expected 3 fields")
-                    section, code, name = (value.strip() for value in row)
-                    if not (len(section) == 1 and "A" <= section <= "Z"):
-                        raise ValueError(f"invalid OKVED2 CSV line {n}: section")
-                    if not name:
-                        raise ValueError(f"invalid OKVED2 CSV line {n}: name")
-                    code = code or section
-                    if code in self.records:
-                        raise ValueError(f"duplicate OKVED2 code {code} on line {n}")
-                    self.records[code] = {"code": code, "section": section, "name": name}
+                n = 0
+                try:
+                    for n, row in enumerate(csv.reader(stream, delimiter=";"), 1):
+                        if not row:
+                            continue
+                        if len(row) != 3:
+                            raise ValueError(f"invalid OKVED2 CSV record {n}: expected 3 fields")
+                        section, code, name = (value.strip() for value in row)
+                        if not (len(section) == 1 and "A" <= section <= "Z"):
+                            raise ValueError(f"invalid OKVED2 CSV record {n}: section")
+                        if not name:
+                            raise ValueError(f"invalid OKVED2 CSV record {n}: name")
+                        code = code or section
+                        if code in self.records:
+                            raise ValueError(f"duplicate OKVED2 code {code} on record {n}")
+                        self.records[code] = {"code": code, "section": section, "name": name}
+                except csv.Error as exc:
+                    raise ValueError(f"invalid OKVED2 CSV record {n + 1}: {exc}") from exc
         else:
-            records = json.loads(path.read_text(encoding="utf-8"))
-            self.records = {item["code"].strip(): item for item in records}
+            try:
+                records = json.loads(path.read_text(encoding="utf-8"))
+            except RecursionError as exc:
+                raise ValueError(f"invalid OKVED2 JSON: {exc}") from exc
+            if not isinstance(records, list):
+                raise ValueError("invalid OKVED2 JSON: expected a list")
+            self.records = {}
+            for n, item in enumerate(records, 1):
+                if (not isinstance(item, dict) or not isinstance(item.get("code"), str)
+                        or not isinstance(item.get("name"), str)):
+                    raise ValueError(f"invalid OKVED2 JSON record {n}")
+                self.records[item["code"].strip()] = item
         if not self.records:
             raise ValueError("OKVED2 reference is empty")
 

@@ -154,6 +154,7 @@ def test_cli_records_failure_and_success(built_marts: Path, tmp_path: Path, caps
 
 @pytest.mark.parametrize("change", [
     "failed", "marts", "edition", "summary", "sub", "extra", "code_version", "independent", "deep",
+    "huge_independent", "huge_tolerance",
 ])
 def test_validate_refuses_invalid_map(built_marts: Path, tmp_path: Path, change):
     rows = independent_rows(built_marts)
@@ -176,6 +177,10 @@ def test_validate_refuses_invalid_map(built_marts: Path, tmp_path: Path, change)
         data["code_version"] = "other"
     elif change == "independent":
         data["independent_sha256"] = "x"
+    elif change == "huge_independent":
+        data["checks"][0]["independent"] = 10**400
+    elif change == "huge_tolerance":
+        data["checks"][0]["tolerance"] = 10**400
     if change == "deep":
         out.write_text("[" * 100000 + "]" * 100000)
     else:
@@ -236,3 +241,23 @@ def test_crosscheck_refuses_existing_output(built_marts, tmp_path, kind):
     assert not target.exists()
     if kind == "file":
         assert out.read_bytes() == b"existing"
+
+
+def test_cli_crosscheck_does_not_reread_output(built_marts, tmp_path, monkeypatch, capsys):
+    rows = independent_rows(built_marts)
+    rows[0]["value"] += 1
+    path = write_csv(tmp_path / "independent.csv", rows)
+    out = tmp_path / "map.json"
+    original = Path.read_bytes
+
+    def read_bytes(self):
+        if self == out:
+            raise AssertionError("CLI must not reread output")
+        return original(self)
+
+    monkeypatch.setattr(Path, "read_bytes", read_bytes)
+    assert main([
+        "crosscheck", "--marts", str(built_marts), "--independent", str(path), "--out", str(out),
+    ]) == 2
+    assert "1 crosscheck discrepancies" in capsys.readouterr().err
+    assert out.exists()

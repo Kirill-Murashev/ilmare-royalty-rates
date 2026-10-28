@@ -20,7 +20,12 @@ ROYALTY_FIELDS = {"p05", "p10", "p25", "p50", "p75", "p90", "p95"}
 
 
 def finite_number(value) -> bool:
-    return type(value) in (int, float) and math.isfinite(value)
+    if type(value) not in (int, float):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
 
 
 def mart_index(marts: Path) -> dict:
@@ -109,6 +114,10 @@ def summarize(checks: list[dict]) -> dict:
 
 
 def crosscheck(marts: Path, independent: Path, out: Path) -> Path:
+    return crosscheck_map(marts, independent, out)[0]
+
+
+def crosscheck_map(marts: Path, independent: Path, out: Path) -> tuple[Path, dict]:
     """Write a deterministic comparison map, including failed checks."""
     try:
         manifest = verify_marts(marts)
@@ -144,6 +153,7 @@ def crosscheck(marts: Path, independent: Path, out: Path) -> Path:
                 except (ValueError, TypeError) as exc:
                     raise ValueError(f"line {line}: {exc}") from exc
         checks.sort(key=check_sort_key)
+        summary = summarize(checks)
         write_json_new(
             out,
             {
@@ -153,7 +163,7 @@ def crosscheck(marts: Path, independent: Path, out: Path) -> Path:
                 "code_version": manifest["code_version"],
                 "independent_sha256": hashlib.sha256(raw).hexdigest(),
                 "checks": checks,
-                "summary": summarize(checks),
+                "summary": summary,
             },
         )
     except csv.Error as exc:
@@ -162,7 +172,7 @@ def crosscheck(marts: Path, independent: Path, out: Path) -> Path:
         raise ValueError("--out must not exist and its parent must exist") from exc
     except (OSError, UnicodeError, duckdb.Error) as exc:
         raise ValueError(f"cannot crosscheck: {exc}") from exc
-    return out
+    return out, summary
 
 
 def validate_crosscheck(path: Path, marts: Path) -> dict:

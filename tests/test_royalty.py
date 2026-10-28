@@ -158,3 +158,10 @@ def test_base_eligibility_and_wmean(level: str, precision: int) -> None:
     assert {row[3] for row in sampler.rows(cell)} == {"q3", "median", "wmean"}
     cell.update(q3=-0.1, median=0, wmean=-0.1)
     assert sampler.rows(cell) == []
+
+
+def test_deep_model_is_value_error():
+    from ilmare_edition.royalty import parse_model
+
+    with pytest.raises(ValueError):
+        parse_model(("[" * 100000 + "]" * 100000).encode())

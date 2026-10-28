@@ -32,7 +32,7 @@ def _positive_finite(value: object) -> bool:
 def parse_model(raw: bytes) -> dict:
     try:
         model = json.loads(raw)
-    except ValueError as exc:
+    except (ValueError, RecursionError) as exc:
         raise ValueError(f"invalid share model JSON: {exc}") from exc
     if not isinstance(model, dict):
         raise ValueError("share model must contain an object")

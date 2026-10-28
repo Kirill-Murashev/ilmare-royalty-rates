@@ -1,7 +1,6 @@
 """Command-line entry point."""
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
@@ -9,7 +8,7 @@ import duckdb
 
 from .calibration import calibrate
 from .config import DEFAULT_MODEL, DEFAULT_PATTERN, Config, parse_years
-from .crosscheck import crosscheck
+from .crosscheck import crosscheck_map
 from .marts import build_marts
 from .replace import replace_share_model
 
@@ -51,8 +50,8 @@ def main(argv: list[str] | None = None) -> int:
         elif command == "calibrate":
             calibrate(**args)
         elif command == "crosscheck":
-            crosscheck(**args)
-            failed = json.loads(args["out"].read_bytes())["summary"]["failed"]
+            _, summary = crosscheck_map(**args)
+            failed = summary["failed"]
             if failed:
                 print(f"ilmare-edition: {failed} crosscheck discrepancies", file=sys.stderr)
                 return 2

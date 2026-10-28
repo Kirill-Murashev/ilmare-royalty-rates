@@ -322,3 +322,48 @@ def test_normalization_counts_source_codes_before_f7(
     assert sum(row[2] for row in normalization) == next(
         n for _, sec, step, n in funnel if sec == "total" and step == "f5_opf"
     ) == 13
+
+
+def test_write_json_new_is_atomic(tmp_path: Path, monkeypatch) -> None:
+    from ilmare_edition.marts import write_json_new
+
+    def fail_fsync(descriptor):
+        raise OSError("fsync failed")
+
+    monkeypatch.setattr("ilmare_edition.marts.os.fsync", fail_fsync)
+    out = tmp_path / "x.json"
+    with pytest.raises(OSError, match="fsync failed"):
+        write_json_new(out, {"value": 1})
+    assert not out.exists()
+    assert not list(tmp_path.glob(".x.json.*.tmp"))
+
+
+def test_write_json_new_keeps_foreign_file(tmp_path: Path, monkeypatch) -> None:
+    import os
+
+    from ilmare_edition.marts import write_json_new
+
+    original = os.link
+    out = tmp_path / "x.json"
+
+    def link(source, destination):
+        out.write_bytes(b"other")
+        original(source, destination)
+
+    monkeypatch.setattr("ilmare_edition.marts.os.link", link)
+    with pytest.raises(FileExistsError):
+        write_json_new(out, {"value": 1})
+    assert out.read_bytes() == b"other"
+    assert not list(tmp_path.glob(".x.json.*.tmp"))
+
+
+def test_write_json_new_bytes_match_write_json(tmp_path: Path) -> None:
+    from ilmare_edition.marts import write_json, write_json_new
+
+    value = {"text": "Название", "values": [None, True, 0, 1.25], "nested": {"b": 2, "a": 1}}
+    ordinary, atomic = tmp_path / "ordinary.json", tmp_path / "atomic.json"
+    write_json(ordinary, value)
+    write_json_new(atomic, value)
+    assert atomic.read_bytes() == ordinary.read_bytes()
+    assert atomic.stat().st_mode == ordinary.stat().st_mode
+    assert not list(tmp_path.glob(".atomic.json.*.tmp"))

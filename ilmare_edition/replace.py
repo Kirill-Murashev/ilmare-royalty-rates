@@ -48,9 +48,14 @@ def replace_share_model(marts: Path, share_model: Path, out: Path) -> None:
         raise ValueError("source share_model.json does not match SHA256SUMS")
     if manifest.get("share_model_sha256") != old_hash:
         raise ValueError("manifest share_model_sha256 does not match share_model.json")
+    replacements = manifest.get("share_model_replacements", [])
+    if not isinstance(replacements, list) or any(
+        not isinstance(item, dict) for item in replacements
+    ):
+        raise ValueError("manifest share_model_replacements must be a list of objects")
     try:
         old = json.loads(old_raw)
-    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+    except (json.JSONDecodeError, UnicodeDecodeError, RecursionError) as exc:
         raise ValueError(f"invalid source share_model.json: {exc}") from exc
     if not isinstance(old, dict):
         raise ValueError("source share_model.json must contain an object")
@@ -102,8 +107,8 @@ def replace_share_model(marts: Path, share_model: Path, out: Path) -> None:
 
         updated_manifest = dict(manifest)
         updated_manifest["share_model_sha256"] = new_hash
-        replacements = list(manifest.get("share_model_replacements", []))
-        replacements.append(
+        replacements = [
+            *replacements,
             {
                 "from_version": old.get("version"),
                 "from_sha256": old_hash,
@@ -112,7 +117,7 @@ def replace_share_model(marts: Path, share_model: Path, out: Path) -> None:
                 "replaced_at": datetime.now(timezone.utc).isoformat(),
                 "code_version": code_version(),
             }
-        )
+        ]
         updated_manifest["share_model_replacements"] = replacements
         write_json(temporary / "manifest.json", updated_manifest)
 

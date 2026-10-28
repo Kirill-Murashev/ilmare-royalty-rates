@@ -379,3 +379,26 @@ def test_cli_replace_success_and_error(synthetic, tmp_path: Path, capsys) -> Non
         == 2
     )
     assert "ilmare-edition:" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("value", [5, "abc", None, {"a": 1}, [1]])
+def test_replacement_history_must_be_list_of_objects(synthetic, tmp_path, value):
+    from ilmare_edition.marts import build_marts
+
+    build_marts(synthetic)
+    source = synthetic.out
+    manifest = json.loads((source / "manifest.json").read_bytes())
+    manifest["share_model_replacements"] = value
+    (source / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    _seal_sums(source)
+    out = tmp_path / "replacement"
+    with pytest.raises(ValueError, match="share_model_replacements"):
+        replace_share_model(source, DEFAULT_MODEL, out)
+    assert not out.exists()
+    assert not list(tmp_path.glob(".replace-share-model-*"))
+    assert main([
+        "replace-share-model", "--marts", str(source), "--share-model", str(DEFAULT_MODEL),
+        "--out", str(out),
+    ]) == 2
+    assert not out.exists()
+    assert not list(tmp_path.glob(".replace-share-model-*"))

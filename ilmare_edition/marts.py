@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 import subprocess
 import tempfile
 from datetime import datetime, timezone
@@ -142,15 +143,21 @@ def write_json(path: Path, value: dict) -> None:
 
 
 def write_json_new(path: Path, value: dict) -> None:
-    """Write JSON like write_json, but only into a path that does not exist yet."""
+    """Write JSON like write_json, atomically and only into a path that does not exist yet."""
     text = json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False) + "\n"
-    stream = path.open("x", encoding="utf-8")
+    descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    temporary = Path(name)
     try:
-        with stream:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
             stream.write(text)
-    except BaseException:
-        path.unlink(missing_ok=True)
-        raise
+            stream.flush()
+            os.fsync(stream.fileno())
+        current_umask = os.umask(0)
+        os.umask(current_umask)
+        temporary.chmod(0o666 & ~current_umask)
+        os.link(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def write_outputs(con: duckdb.DuckDBPyConnection, config: Config) -> dict[str, int]:

@@ -48,12 +48,12 @@ def test_rosstat_csv_strips_fields(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(("row", "message"), [
-    ('"A";"01"', "invalid OKVED2 CSV line 3: expected 3 fields"),
-    ('"a";"01";"name"', "invalid OKVED2 CSV line 3: section"),
-    ('"AB";"01";"name"', "invalid OKVED2 CSV line 3: section"),
-    ('"A";"01";" "', "invalid OKVED2 CSV line 3: name"),
-    ('"A";"01";"name"', "duplicate OKVED2 code 01 on line 3"),
-    ('"A";" ";"name"', "duplicate OKVED2 code A on line 3"),
+    ('"A";"01"', "invalid OKVED2 CSV record 3: expected 3 fields"),
+    ('"a";"01";"name"', "invalid OKVED2 CSV record 3: section"),
+    ('"AB";"01";"name"', "invalid OKVED2 CSV record 3: section"),
+    ('"A";"01";" "', "invalid OKVED2 CSV record 3: name"),
+    ('"A";"01";"name"', "duplicate OKVED2 code 01 on record 3"),
+    ('"A";" ";"name"', "duplicate OKVED2 code A on record 3"),
 ])
 def test_invalid_rosstat_csv(tmp_path: Path, row: str, message: str) -> None:
     path = tmp_path / "reference.csv"
@@ -85,3 +85,29 @@ def test_normalization_rule(reference: Path, code: str | None, expected: str) ->
         ).fetchone()
     assert rule == expected
     assert (rule not in {"empty", "unmatched"}) == (normalized is not None)
+
+
+def test_csv_field_limit_is_value_error(tmp_path: Path) -> None:
+    path = tmp_path / "reference.csv"
+    path.write_text('"A";" ";"section"\n"A";"01";"' + "x" * 200000 + '"\n', encoding="utf-8")
+    with pytest.raises(ValueError, match="^invalid OKVED2 CSV record 2"):
+        Okved(path)
+
+
+def test_csv_error_reports_record_not_line(tmp_path: Path) -> None:
+    path = tmp_path / "reference.csv"
+    path.write_text('"A";" ";"section"\n"A";"01";"multi\nline"\n"A";"02"', encoding="utf-8")
+    with pytest.raises(ValueError) as exc:
+        Okved(path)
+    assert str(exc.value) == "invalid OKVED2 CSV record 3: expected 3 fields"
+
+
+@pytest.mark.parametrize("content", [
+    "{}", "[1]", '[{"name": "x"}]', '[{"code": "01"}]', '[{"code": 1, "name": "x"}]',
+    "[" * 100000 + "]" * 100000,
+])
+def test_invalid_json_reference(tmp_path: Path, content: str) -> None:
+    path = tmp_path / "reference.json"
+    path.write_text(content, encoding="utf-8")
+    with pytest.raises(ValueError):
+        Okved(path)

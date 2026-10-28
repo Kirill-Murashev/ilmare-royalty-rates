@@ -15,7 +15,7 @@ import duckdb
 
 from .marts import code_version as current_code_version
 from .marts import sha256, write_json_new
-from .marts_io import SAFE_NAME, read_rows, verify_marts
+from .marts_io import SAFE_NAME, read_rows, verify_marts_digests
 
 TIERS = ("low", "normal", "valuable", "core")
 COLUMNS = (
@@ -172,7 +172,7 @@ def validate_model(model: dict) -> dict:
             values.extend(factors.values())
         if any(type(v) not in (int, float) or not math.isfinite(v) or v <= 0 for v in values):
             raise ValueError("share model factors must be finite positive numbers")
-    except (KeyError, TypeError, IndexError) as exc:
+    except (KeyError, TypeError, IndexError, OverflowError) as exc:
         raise ValueError(f"invalid share model: {exc}") from exc
     return model
 
@@ -373,11 +373,14 @@ def calibrate(
 ) -> Path:
     """Write all 45 rounded values, or fail without creating an output file."""
     try:
-        manifest = verify_marts(marts)
+        manifest, digests = verify_marts_digests(marts)
         if os.path.lexists(out) or not out.parent.is_dir():
             raise ValueError("--out must not exist and its parent must exist")
         lookup = CellLookup(read_rows(marts, "cells"), read_rows(marts, "okved_names"))
-        model = validate_model(json.loads((marts / "share_model.json").read_bytes()))
+        model_raw = (marts / "share_model.json").read_bytes()
+        if hashlib.sha256(model_raw).hexdigest() != digests["share_model.json"]:
+            raise ValueError("share_model.json does not match SHA256SUMS")
+        model = validate_model(json.loads(model_raw))
         paths = (benchmarks_ru, benchmarks_fx, elbereth_cases)
         for path in paths:
             if not isinstance(path.name, str) or not SAFE_NAME.fullmatch(path.name):

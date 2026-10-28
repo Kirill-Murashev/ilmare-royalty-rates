@@ -327,3 +327,31 @@ def test_parse_benchmarks_matches_file(calibration_file):
         lf = raw.replace(b"\r\n", b"\n")
         assert parse_benchmarks(lf, path.name) == expected
         assert parse_benchmarks(lf.replace(b"\n", b"\r\n"), path.name) == expected
+
+
+def test_calibrate_reads_model_once(built_marts, calibration_file, tmp_path, monkeypatch):
+    import ilmare_edition.calibration as module
+
+    data = json.loads(calibration_file.read_bytes())
+    paths = [calibration_file.parent / item["name"] for item in data["inputs"]]
+    original = module.verify_marts_digests
+
+    def verify(marts):
+        result = original(marts)
+        changed = json.loads((marts / "share_model.json").read_bytes())
+        changed["version"] = "changed"
+        (marts / "share_model.json").write_text(json.dumps(changed), encoding="utf-8")
+        return result
+
+    monkeypatch.setattr(module, "verify_marts_digests", verify)
+    out = tmp_path / "changed.json"
+    with pytest.raises(ValueError, match="share_model.json"):
+        calibrate(built_marts, *paths, out)
+    assert not out.exists()
+
+
+def test_validate_model_huge_integer():
+    data = model()
+    data["k_ip"]["trademark"] = 10**400
+    with pytest.raises(ValueError):
+        validate_model(data)
