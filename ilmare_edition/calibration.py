@@ -14,8 +14,8 @@ from pathlib import Path
 import duckdb
 
 from .marts import code_version as current_code_version
-from .marts import sha256, write_json_new
-from .marts_io import SAFE_NAME, read_rows, verify_marts_digests
+from .marts import write_json_new
+from .marts_io import SAFE_NAME, read_rows, require_marts_unchanged, verify_marts_snapshot
 
 TIERS = ("low", "normal", "valuable", "core")
 COLUMNS = (
@@ -373,7 +373,7 @@ def calibrate(
 ) -> Path:
     """Write all 45 rounded values, or fail without creating an output file."""
     try:
-        manifest, digests = verify_marts_digests(marts)
+        manifest, digests, sums_raw = verify_marts_snapshot(marts)
         if os.path.lexists(out) or not out.parent.is_dir():
             raise ValueError("--out must not exist and its parent must exist")
         lookup = CellLookup(read_rows(marts, "cells"), read_rows(marts, "okved_names"))
@@ -391,12 +391,13 @@ def calibrate(
             for raw, path in zip(raw_inputs, paths, strict=True)
         ]
         values = compute_values(*rows, lookup, model)
+        require_marts_unchanged(marts, manifest, digests, sums_raw)
         write_json_new(
             out,
             {
                 "format": "ilmare-calibration/1",
                 "edition": manifest["edition"],
-                "marts_sha256sums": sha256(marts / "SHA256SUMS"),
+                "marts_sha256sums": hashlib.sha256(sums_raw).hexdigest(),
                 "share_model": {
                     "version": model["version"],
                     "sha256": manifest["share_model_sha256"],

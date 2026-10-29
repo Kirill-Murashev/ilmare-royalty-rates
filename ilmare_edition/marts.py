@@ -156,6 +156,11 @@ def write_json_new(path: Path, value: dict) -> None:
         os.umask(current_umask)
         temporary.chmod(0o666 & ~current_umask)
         os.link(temporary, path)
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
     finally:
         temporary.unlink(missing_ok=True)
 

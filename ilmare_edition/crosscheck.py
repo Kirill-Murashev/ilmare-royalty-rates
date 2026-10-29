@@ -11,7 +11,13 @@ from pathlib import Path
 import duckdb
 
 from .marts import CELL_SCHEMA, sha256, write_json_new
-from .marts_io import HEX64, read_rows, verify_marts
+from .marts_io import (
+    HEX64,
+    read_rows,
+    require_marts_unchanged,
+    verify_marts,
+    verify_marts_snapshot,
+)
 
 COLUMNS = ("table", "t", "level", "code", "base", "tier", "field", "value", "tolerance")
 LEVELS = ("sec", "cls", "sub", "grp", "all")
@@ -120,7 +126,7 @@ def crosscheck(marts: Path, independent: Path, out: Path) -> Path:
 def crosscheck_map(marts: Path, independent: Path, out: Path) -> tuple[Path, dict]:
     """Write a deterministic comparison map, including failed checks."""
     try:
-        manifest = verify_marts(marts)
+        manifest, digests, sums_raw = verify_marts_snapshot(marts)
         if os.path.lexists(out) or not out.parent.is_dir():
             raise ValueError("--out must not exist and its parent must exist")
         index = mart_index(marts)
@@ -154,12 +160,13 @@ def crosscheck_map(marts: Path, independent: Path, out: Path) -> tuple[Path, dic
                     raise ValueError(f"line {line}: {exc}") from exc
         checks.sort(key=check_sort_key)
         summary = summarize(checks)
+        require_marts_unchanged(marts, manifest, digests, sums_raw)
         write_json_new(
             out,
             {
                 "format": "ilmare-crosscheck/1",
                 "edition": manifest["edition"],
-                "marts_sha256sums": sha256(marts / "SHA256SUMS"),
+                "marts_sha256sums": hashlib.sha256(sums_raw).hexdigest(),
                 "code_version": manifest["code_version"],
                 "independent_sha256": hashlib.sha256(raw).hexdigest(),
                 "checks": checks,

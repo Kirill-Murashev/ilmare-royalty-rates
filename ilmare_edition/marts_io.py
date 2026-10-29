@@ -45,13 +45,21 @@ def verify_marts(marts: Path) -> dict[str, Any]:
 
 def verify_marts_digests(marts: Path) -> tuple[dict[str, Any], dict[str, str]]:
     """Return the verified manifest and digests from a single checksum file read."""
+    manifest, entries, _ = verify_marts_snapshot(marts)
+    return manifest, entries
+
+
+def verify_marts_snapshot(marts: Path) -> tuple[dict[str, Any], dict[str, str], bytes]:
+    """Return the verified manifest, digests and the exact SHA256SUMS bytes they were parsed from.
+    """
     marts = marts.resolve()
     manifest_path = marts / "manifest.json"
     sums_path = marts / "SHA256SUMS"
     if not manifest_path.is_file() or not sums_path.is_file():
         raise ValueError("--marts must contain manifest.json and SHA256SUMS")
     entries: dict[str, str] = {}
-    for line_number, line in enumerate(sums_path.read_text(encoding="utf-8").splitlines(), 1):
+    sums_raw = sums_path.read_bytes()
+    for line_number, line in enumerate(sums_raw.decode("utf-8").splitlines(), 1):
         if not line.strip():
             continue
         if "  " not in line:
@@ -87,4 +95,15 @@ def verify_marts_digests(marts: Path) -> tuple[dict[str, Any], dict[str, str]]:
         raise ValueError(f"invalid marts manifest.json: {exc}") from exc
     if not isinstance(manifest, dict):
         raise ValueError("marts manifest.json must contain an object")
-    return manifest, entries
+    if manifest.get("share_model_sha256") != entries["share_model.json"]:
+        raise ValueError("marts manifest share_model_sha256 does not match SHA256SUMS")
+    return manifest, entries, sums_raw
+
+
+def require_marts_unchanged(
+    marts: Path, manifest: dict[str, Any], digests: dict[str, str], sums_raw: bytes,
+) -> None:
+    """Fail when the marts differ from the first verification after they have been read."""
+    current_manifest, current_digests, current_sums = verify_marts_snapshot(marts)
+    if current_manifest != manifest or current_digests != digests or current_sums != sums_raw:
+        raise ValueError("marts changed during the build")

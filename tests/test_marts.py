@@ -367,3 +367,21 @@ def test_write_json_new_bytes_match_write_json(tmp_path: Path) -> None:
     assert atomic.read_bytes() == ordinary.read_bytes()
     assert atomic.stat().st_mode == ordinary.stat().st_mode
     assert not list(tmp_path.glob(".atomic.json.*.tmp"))
+
+
+def test_write_json_new_syncs_directory(tmp_path: Path, monkeypatch) -> None:
+    import os
+    import stat
+
+    from ilmare_edition.marts import write_json_new
+
+    original = os.fsync
+    calls = []
+
+    def fsync(descriptor):
+        calls.append(stat.S_ISDIR(os.fstat(descriptor).st_mode))
+        original(descriptor)
+
+    monkeypatch.setattr("ilmare_edition.marts.os.fsync", fsync)
+    write_json_new(tmp_path / "x.json", {"value": 1})
+    assert calls == [False, True]

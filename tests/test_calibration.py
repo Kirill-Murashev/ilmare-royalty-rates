@@ -334,7 +334,7 @@ def test_calibrate_reads_model_once(built_marts, calibration_file, tmp_path, mon
 
     data = json.loads(calibration_file.read_bytes())
     paths = [calibration_file.parent / item["name"] for item in data["inputs"]]
-    original = module.verify_marts_digests
+    original = module.verify_marts_snapshot
 
     def verify(marts):
         result = original(marts)
@@ -343,7 +343,7 @@ def test_calibrate_reads_model_once(built_marts, calibration_file, tmp_path, mon
         (marts / "share_model.json").write_text(json.dumps(changed), encoding="utf-8")
         return result
 
-    monkeypatch.setattr(module, "verify_marts_digests", verify)
+    monkeypatch.setattr(module, "verify_marts_snapshot", verify)
     out = tmp_path / "changed.json"
     with pytest.raises(ValueError, match="share_model.json"):
         calibrate(built_marts, *paths, out)
@@ -355,3 +355,39 @@ def test_validate_model_huge_integer():
     data["k_ip"]["trademark"] = 10**400
     with pytest.raises(ValueError):
         validate_model(data)
+
+
+def test_calibrate_refuses_marts_changed_after_read(
+    built_marts, calibration_file, tmp_path, monkeypatch,
+):
+    import ilmare_edition.calibration as module
+
+    data = json.loads(calibration_file.read_bytes())
+    paths = [calibration_file.parent / item["name"] for item in data["inputs"]]
+    original = module.compute_values
+
+    def compute(*args):
+        result = original(*args)
+        with (built_marts / "royalty.parquet").open("ab") as stream:
+            stream.write(b"x")
+        (built_marts / "SHA256SUMS").write_text("".join(
+            f"{sha256(path)}  {path.name}\n"
+            for path in sorted(built_marts.iterdir()) if path.name != "SHA256SUMS"
+        ), encoding="utf-8")
+        return result
+
+    monkeypatch.setattr(module, "compute_values", compute)
+    out = tmp_path / "changed.json"
+    with pytest.raises(ValueError, match="marts changed"):
+        calibrate(built_marts, *paths, out)
+    assert not out.exists()
+
+
+def test_calibrate_sums_digest_from_verified_bytes(built_marts, calibration_file, tmp_path):
+    from ilmare_edition.marts_io import verify_marts_snapshot
+
+    data = json.loads(calibration_file.read_bytes())
+    paths = [calibration_file.parent / item["name"] for item in data["inputs"]]
+    expected = hashlib.sha256(verify_marts_snapshot(built_marts)[2]).hexdigest()
+    out = calibrate(built_marts, *paths, tmp_path / "new.json", code_version="test")
+    assert json.loads(out.read_bytes())["marts_sha256sums"] == expected

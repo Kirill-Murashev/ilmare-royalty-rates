@@ -104,10 +104,19 @@ def test_csv_error_reports_record_not_line(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("content", [
     "{}", "[1]", '[{"name": "x"}]', '[{"code": "01"}]', '[{"code": 1, "name": "x"}]',
+    '[{"code": "01", "name": "x", "section": 1}]', '[{"code": " ", "name": "x"}]',
     "[" * 100000 + "]" * 100000,
 ])
 def test_invalid_json_reference(tmp_path: Path, content: str) -> None:
     path = tmp_path / "reference.json"
     path.write_text(content, encoding="utf-8")
     with pytest.raises(ValueError):
+        Okved(path)
+
+
+def test_duplicate_json_code(tmp_path: Path) -> None:
+    path = tmp_path / "reference.json"
+    path.write_text('[{"code": "01", "name": "a"}, {"code": " 01", "name": "b"}]',
+                    encoding="utf-8")
+    with pytest.raises(ValueError, match="^duplicate OKVED2 code 01 on record 2$"):
         Okved(path)

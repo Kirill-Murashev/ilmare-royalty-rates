@@ -42,9 +42,14 @@ class Okved:
             self.records = {}
             for n, item in enumerate(records, 1):
                 if (not isinstance(item, dict) or not isinstance(item.get("code"), str)
-                        or not isinstance(item.get("name"), str)):
+                        or not isinstance(item.get("name"), str)
+                        or not isinstance(item.get("section", ""), str)
+                        or not item["code"].strip()):
                     raise ValueError(f"invalid OKVED2 JSON record {n}")
-                self.records[item["code"].strip()] = item
+                code = item["code"].strip()
+                if code in self.records:
+                    raise ValueError(f"duplicate OKVED2 code {code} on record {n}")
+                self.records[code] = item
         if not self.records:
             raise ValueError("OKVED2 reference is empty")
 

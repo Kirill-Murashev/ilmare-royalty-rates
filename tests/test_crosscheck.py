@@ -261,3 +261,25 @@ def test_cli_crosscheck_does_not_reread_output(built_marts, tmp_path, monkeypatc
     ]) == 2
     assert "1 crosscheck discrepancies" in capsys.readouterr().err
     assert out.exists()
+
+
+def test_crosscheck_refuses_marts_changed_after_read(built_marts, tmp_path, monkeypatch):
+    module = importlib.import_module("ilmare_edition.crosscheck")
+    path = write_csv(tmp_path / "independent.csv", independent_rows(built_marts))
+    original = module.summarize
+
+    def summarize(checks):
+        result = original(checks)
+        with (built_marts / "royalty.parquet").open("ab") as stream:
+            stream.write(b"x")
+        (built_marts / "SHA256SUMS").write_text("".join(
+            f"{sha256(file)}  {file.name}\n"
+            for file in sorted(built_marts.iterdir()) if file.name != "SHA256SUMS"
+        ), encoding="utf-8")
+        return result
+
+    monkeypatch.setattr(module, "summarize", summarize)
+    out = tmp_path / "changed.json"
+    with pytest.raises(ValueError, match="marts changed"):
+        crosscheck(built_marts, path, out)
+    assert not out.exists()

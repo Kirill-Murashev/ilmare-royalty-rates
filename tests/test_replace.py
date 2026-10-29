@@ -402,3 +402,27 @@ def test_replacement_history_must_be_list_of_objects(synthetic, tmp_path, value)
     ]) == 2
     assert not out.exists()
     assert not list(tmp_path.glob(".replace-share-model-*"))
+
+
+def test_manifest_model_hash_must_match_sums(synthetic) -> None:
+    from ilmare_edition.marts import build_marts
+    from ilmare_edition.marts_io import verify_marts_snapshot
+
+    build_marts(synthetic)
+    manifest_path = synthetic.out / "manifest.json"
+    manifest = json.loads(manifest_path.read_bytes())
+    manifest["share_model_sha256"] = "0" * 64
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    _seal_sums(synthetic.out)
+    with pytest.raises(ValueError, match="share_model_sha256"):
+        verify_marts_snapshot(synthetic.out)
+
+
+def test_verify_marts_snapshot_returns_parsed_bytes(synthetic) -> None:
+    from ilmare_edition.marts import build_marts
+    from ilmare_edition.marts_io import verify_marts_digests, verify_marts_snapshot
+
+    build_marts(synthetic)
+    snapshot = verify_marts_snapshot(synthetic.out)
+    assert snapshot[2] == (synthetic.out / "SHA256SUMS").read_bytes()
+    assert verify_marts_digests(synthetic.out) == snapshot[:2]
